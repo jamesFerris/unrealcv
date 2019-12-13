@@ -5,6 +5,12 @@
 #include "Runtime/Engine/Public/ScreenRendering.h"
 #include "Runtime/Core/Public/Modules/ModuleManager.h"
 
+// #if ENGINE_MINOR_VERSION < 22
+// #else
+    // #include "RendererInterface.h"
+	#include "VisualizeTexture.h"
+// #endif
+
 #include "UnrealcvStats.h"
 #include "UnrealcvLog.h"
 
@@ -85,17 +91,29 @@ bool FastReadTexture2DAsync(FTexture2DRHIRef Texture2D, TFunction<void(FColor*, 
 		Callback(ColorBuffer, Width, Height);
 		RHICmdList.UnmapStagingSurface(ReadbackTexture);
 	};
-
+#if ENGINE_MINOR_VERSION < 22
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		FastReadBuffer,
 		TFunction<void(FRHICommandListImmediate&, FTexture2DRHIRef)>, InRenderCommand, RenderCommand,
 		FTexture2DRHIRef, InTexture2D, Texture2D,
 		{
 			InRenderCommand(RHICmdList, InTexture2D);
-		});
+		}
+	);
+#else
+	TFunction<void(FRHICommandListImmediate&, FTexture2DRHIRef)> InRenderCommand = RenderCommand;
+	FTexture2DRHIRef InTexture2D = Texture2D;
+	ENQUEUE_RENDER_COMMAND(FastReadBuffer)
+	(
+		[InRenderCommand, InTexture2D](FRHICommandListImmediate& RHICmdList)
+		{
+			InRenderCommand(RHICmdList, InTexture2D);
+		}
+	);
+#endif
 	return true;
 }
-
+/**
 bool ResizeFastReadTexture2DAsync(FTexture2DRHIRef Texture2D, int TargetWidth, int TargetHeight, TFunction<void(FColor*, int32, int32)> Callback)
 {
 	auto RenderCommand = [=](FRHICommandListImmediate& RHICmdList, FTexture2DRHIRef SrcTexture)
@@ -119,8 +137,14 @@ bool ResizeFastReadTexture2DAsync(FTexture2DRHIRef Texture2D, int TargetWidth, i
 		static const FName RendererModuleName("Renderer");
 		IRendererModule* RendererModule = &FModuleManager::GetModuleChecked<IRendererModule>(RendererModuleName);
 
+#if ENGINE_MINOR_VERSION < 22
 		// IRendererModule RendererModule;
 		RendererModule->RenderTargetPoolFindFreeElement(RHICmdList, OutputDesc, ResampleTexturePooledRenderTarget, TEXT("ResampleTexture"));
+#else
+		UE_LOG(LogUnrealCV, Warning, TEXT("Using FVisualizeTexture"));
+		FVisualizeTexture TextureVisualizer;
+		TextureVisualizer.SetCheckPoint(RHICmdList, ResampleTexturePooledRenderTarget);
+#endif
 		if (!ResampleTexturePooledRenderTarget)
 		{
 			UE_LOG(LogUnrealCV, Warning, TEXT("ResampleTexturePooledRenderTarget is invalid"));
@@ -128,8 +152,11 @@ bool ResizeFastReadTexture2DAsync(FTexture2DRHIRef Texture2D, int TargetWidth, i
 		}
 
 		const FSceneRenderTargetItem& DestRenderTarget = ResampleTexturePooledRenderTarget->GetRenderTargetItem();
-
+// #if ENGINE_MINOR_VERSION < 22
 		SetRenderTarget(RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+// #else		
+		// RHIBeginRenderPass(RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+// #endif
 		RHICmdList.SetViewport(0, 0, 0.0f, TargetWidth, TargetHeight, 1.0f);
 
 		// TODO: check these APIs
@@ -202,6 +229,7 @@ bool ResizeFastReadTexture2DAsync(FTexture2DRHIRef Texture2D, int TargetWidth, i
 		RHICmdList.UnmapStagingSurface(ReadbackTexture);
 	};
 
+#if ENGINE_MINOR_VERSION < 22
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		FastReadBufferResize,
 		TFunction<void(FRHICommandListImmediate&, FTexture2DRHIRef)>, InRenderCommand, RenderCommand,
@@ -209,5 +237,17 @@ bool ResizeFastReadTexture2DAsync(FTexture2DRHIRef Texture2D, int TargetWidth, i
 	{
 		InRenderCommand(RHICmdList, InTexture2D);
 	});
+#else
+	TFunction<void(FRHICommandListImmediate&, FTexture2DRHIRef)> InRenderCommand = RenderCommand;
+	FTexture2DRHIRef InTexture2D = Texture2D;
+	ENQUEUE_RENDER_COMMAND(FastReadBufferResize)
+	(
+		[InRenderCommand, InTexture2D](FRHICommandListImmediate& RHICmdList)
+		{
+			InRenderCommand(RHICmdList, InTexture2D);
+		}
+	);
+#endif
 	return true;
 }
+**/

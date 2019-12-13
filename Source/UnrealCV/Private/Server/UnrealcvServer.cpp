@@ -38,6 +38,7 @@ void FUnrealcvServer::InitWorldController()
 		if (this->WorldController != nullptr)
 		{
 			this->WorldController->InitWorld();
+			UE_LOG(LogTemp, Display, TEXT("WorldController Initialised"));
 		}
 		else
 		{
@@ -112,6 +113,7 @@ UWorld* FUnrealcvServer::GetWorld()
 {
 	UWorld* WorldPtr = nullptr;
 #if WITH_EDITOR
+	UE_LOG(LogUnrealCV, Warning, TEXT("Running in Editor mode"));
 	UEditorEngine* EditorEngine = Cast<UEditorEngine>(GEngine);
 	if (IsValid(EditorEngine))
 	{
@@ -124,7 +126,17 @@ UWorld* FUnrealcvServer::GetWorld()
 			WorldPtr = EditorEngine->GetEditorWorldContext().World();
 		}
 	} // else game mode in editor
+	else
+	{
+		UE_LOG(LogUnrealCV, Error, TEXT("Invalid EditorEngine - Running in Standalone Mode??"));
+		UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
+		if (IsValid(GameEngine))
+		{
+			WorldPtr = GameEngine->GetGameWorld(); // Not GetWorld !
+		}
+	}
 #else
+	UE_LOG(LogUnrealCV, Warning, TEXT("Running in Non-Editor mode"));
 	UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
 	if (IsValid(GameEngine))
 	{
